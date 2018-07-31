@@ -376,7 +376,7 @@ static int start(sox_effect_t * effp)
         lsx_fail("Sample rate must be 44.1k, 48k, 88.2k, 96k, or 192k");
         return SOX_EOF;
       }
-      {/* Normalise to 0dB at 1kHz (Thanks to Glenn Davis) */
+      { /* Normalise to 0dB at 1kHz (Thanks to Glenn Davis) */
         double y = 2 * M_PI * 1000 / effp->in_signal.rate;
         double b_re = p->b0 + p->b1 * cos(-y) + p->b2 * cos(-2 * y);
         double a_re = p->a0 + p->a1 * cos(-y) + p->a2 * cos(-2 * y);
