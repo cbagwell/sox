@@ -344,30 +344,39 @@ static int start(sox_effect_t * effp)
       if (effp->in_signal.rate == 44100) {
         static const double zeros[] = {-0.2014898, 0.9233820};
         static const double poles[] = {0.7083149, 0.9924091};
+        make_poly_from_roots(zeros, (size_t)2, &p->b0);
+        make_poly_from_roots(poles, (size_t)2, &p->a0);
       }
       else if (effp->in_signal.rate == 48000) {
         static const double zeros[] = {-0.1766069, 0.9321590};
         static const double poles[] = {0.7396325, 0.9931330};
+        make_poly_from_roots(zeros, (size_t)2, &p->b0);
+        make_poly_from_roots(poles, (size_t)2, &p->a0);
       }
       else if (effp->in_signal.rate == 88200) {
         static const double zeros[] = {-0.1168735, 0.9648312};
         static const double poles[] = {0.8590646, 0.9964002};
+        make_poly_from_roots(zeros, (size_t)2, &p->b0);
+        make_poly_from_roots(poles, (size_t)2, &p->a0);
       }
       else if (effp->in_signal.rate == 96000) {
         static const double zeros[] = {-0.1141486, 0.9676817};
         static const double poles[] = {0.8699137, 0.9966946};
+        make_poly_from_roots(zeros, (size_t)2, &p->b0);
+        make_poly_from_roots(poles, (size_t)2, &p->a0);
       }
       /* diyaudio.com/forums/analogue-source/203706-error-self-riaa-5.html#post2865323 */
       else if (effp->in_signal.rate == 192000) {
         static const double zeros[] = {-.1040610965, 0.9837523263};
         static const double poles[] = {0.9328992971, 0.9983633125};
+        make_poly_from_roots(zeros, (size_t)2, &p->b0);
+        make_poly_from_roots(poles, (size_t)2, &p->a0);
       }
       else {
         lsx_fail("Sample rate must be 44.1k, 48k, 88.2k, 96k, or 192k");
         return SOX_EOF;
       }
-      { make_poly_from_roots(zeros, (size_t)2, &p->b0);
-        make_poly_from_roots(poles, (size_t)2, &p->a0);
+      {
         /* Normalise to 0dB at 1kHz (Thanks to Glenn Davis) */
         double y = 2 * M_PI * 1000 / effp->in_signal.rate;
         double b_re = p->b0 + p->b1 * cos(-y) + p->b2 * cos(-2 * y);
