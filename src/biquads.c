@@ -365,6 +365,13 @@ static int start(sox_effect_t * effp)
         make_poly_from_roots(zeros, (size_t)2, &p->b0);
         make_poly_from_roots(poles, (size_t)2, &p->a0);
       }
+      /* diyaudio.com/forums/analogue-source/203706-error-self-riaa-5.html#post2865323 */
+      else if (effp->in_signal.rate == 192000) {
+        static const double zeros[] = {-.1040610965, 0.9837523263};
+        static const double poles[] = {0.9328992971, 0.9983633125};
+        make_poly_from_roots(zeros, (size_t)2, &p->b0);
+        make_poly_from_roots(poles, (size_t)2, &p->a0);
+      }
       else {
         lsx_fail("Sample rate must be 44.1k, 48k, 88.2k, or 96k");
         return SOX_EOF;
