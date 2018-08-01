@@ -373,7 +373,7 @@ static int start(sox_effect_t * effp)
         make_poly_from_roots(poles, (size_t)2, &p->a0);
       }
       else {
-        lsx_fail("Sample rate must be 44.1k, 48k, 88.2k, 96k, or 192k");
+        lsx_fail("Sample rate must be 44.1k, 48k, 88.2k, or 96k");
         return SOX_EOF;
       }
       { /* Normalise to 0dB at 1kHz (Thanks to Glenn Davis) */
