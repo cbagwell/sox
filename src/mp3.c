@@ -7,11 +7,17 @@
  * Written by Fabrizio Gennari <fabrizio.ge@tiscali.it>
  *
  * The decoding part is based on the decoder-tutorial program madlld
- * written by Bertrand Petit <madlld@phoe.fmug.org>,
+ * written by Bertrand Petit <madlld@phoe.fmug.org>
+ *
+ * Support for mpg123 added by Erik Ronström <erik.ronstrom@doremir.com>
  */
 
 #include "sox_i.h"
 #include <string.h>
+
+#if defined(HAVE_MAD_H) && defined(HAVE_MPG123_H)
+#error Trying to compile with both MAD and MPG123! Please choose at most one of them.
+#endif
 
 #if defined(HAVE_LAME_LAME_H) || defined(HAVE_LAME_H) || defined(DL_LAME)
 #define HAVE_LAME 1
@@ -21,10 +27,14 @@
   #define HAVE_TWOLAME 1
 #endif
 
-#if defined(HAVE_MAD_H) || defined(HAVE_LAME) || defined(HAVE_TWOLAME)
+#if defined(HAVE_MAD_H) || defined(HAVE_MPG123_H) || defined(HAVE_LAME) || defined(HAVE_TWOLAME)
 
 #ifdef HAVE_MAD_H
 #include <mad.h>
+#endif
+
+#ifdef HAVE_MPG123_H
+#include <mpg123.h>
 #endif
 
 #if defined(HAVE_LAME_LAME_H)
@@ -61,6 +71,7 @@ typedef enum {
 #ifndef HAVE_LIBLTDL
   #undef DL_LAME
   #undef DL_MAD
+  #undef DL_MPG123
 #endif
 
 /* Under Windows, importing data from DLLs is a dicey proposition. This is true
@@ -78,12 +89,15 @@ static mad_timer_t const mad_timer_zero_stub = {0, 0};
 #define ID3PADDING 128
 
 /* LAME takes float values as input. */
-#define MP3_LAME_PRECISION 24
+#define MP3_LAME_PRECISION   24
 
 /* MAD returns values with MAD_F_FRACBITS (28) bits of precision, though it's
    not certain that all of them are meaningful. Default to 16 bits to
    align with most users expectation of output file should be 16 bits. */
-#define MP3_MAD_PRECISION  16
+#define MP3_MAD_PRECISION    16
+
+/* Same for MPG123 */
+#define MP3_MPG123_PRECISION 16
 
 static const char* const mad_library_names[] =
 {
@@ -119,6 +133,60 @@ static const char* const mad_library_names[] =
   MAD_FUNC(f,x, void, mad_header_init, (struct mad_header *)) \
   MAD_FUNC(f,x, signed long, mad_timer_count, (mad_timer_t, enum mad_units)) \
   MAD_FUNC(f,x, void, mad_timer_multiply, (mad_timer_t *, signed long))
+
+
+
+
+
+static const char* const mpg123_library_names[] =
+{
+#ifdef DL_MPG123
+    "libmpg123",
+    "libmpg123-0",
+    "cygmpg123-0",  /* ? */
+#endif
+    NULL
+};
+
+#ifdef DL_MPG123
+  #define MPG123_FUNC LSX_DLENTRY_DYNAMIC
+#else
+  #define MPG123_FUNC LSX_DLENTRY_STATIC
+#endif
+
+#define MPG123_FUNC_ENTRIES(f,x) \
+  MPG123_FUNC(f,x, int, mpg123_init, (void)) \
+  MPG123_FUNC(f,x, void, mpg123_exit, (void)) \
+  MPG123_FUNC(f,x, mpg123_handle*, mpg123_new, (const char *, int *)) \
+  MPG123_FUNC(f,x, void, mpg123_delete, (mpg123_handle *)) \
+  MPG123_FUNC(f,x, int, mpg123_param, (mpg123_handle *, enum mpg123_parms, long, double)) \
+  MPG123_FUNC(f,x, int, mpg123_getparam, (mpg123_handle *, enum mpg123_parms, long *, double *)) \
+  MPG123_FUNC(f,x, const char*, mpg123_plain_strerror, (int)) \
+  MPG123_FUNC(f,x, const char*, mpg123_strerror, (mpg123_handle *)) \
+  MPG123_FUNC(f,x, int, mpg123_errcode, (mpg123_handle *)) \
+  MPG123_FUNC(f,x, void, mpg123_rates, (const long **, size_t *)) \
+  MPG123_FUNC(f,x, void, mpg123_encodings, (const int **, size_t *)) \
+  MPG123_FUNC(f,x, int, mpg123_format_none, (mpg123_handle *)) \
+  MPG123_FUNC(f,x, int, mpg123_format_all, (mpg123_handle *)) \
+  MPG123_FUNC(f,x, int, mpg123_format, (mpg123_handle *, long, int, int)) \
+  MPG123_FUNC(f,x, int, mpg123_getformat, (mpg123_handle *, long *, int *, int *)) \
+  MPG123_FUNC(f,x, int, mpg123_open, (mpg123_handle *, const char *)) \
+  MPG123_FUNC(f,x, int, mpg123_open_fd, (mpg123_handle *, int)) \
+  MPG123_FUNC(f,x, int, mpg123_open_feed, (mpg123_handle *)) \
+  MPG123_FUNC(f,x, int, mpg123_close, (mpg123_handle *)) \
+  MPG123_FUNC(f,x, int, mpg123_read, (mpg123_handle *, unsigned char *, size_t, size_t *)) \
+  MPG123_FUNC(f,x, int, mpg123_feed, (mpg123_handle *, const unsigned char *, size_t)) \
+  MPG123_FUNC(f,x, int, mpg123_decode, (mpg123_handle *, const unsigned char *, size_t, unsigned char *, size_t, size_t *)) \
+  MPG123_FUNC(f,x, off_t, mpg123_seek, (mpg123_handle *, off_t, int)) \
+  MPG123_FUNC(f,x, off_t, mpg123_timeframe, (mpg123_handle *, double)) \
+  MPG123_FUNC(f,x, int, mpg123_scan, (mpg123_handle *)) \
+  MPG123_FUNC(f,x, off_t, mpg123_length, (mpg123_handle *)) \
+  MPG123_FUNC(f,x, size_t, mpg123_outblock, (mpg123_handle *)) \
+  MPG123_FUNC(f,x, size_t, mpg123_safe_buffer, (void))
+
+
+
+
 
 static const char* const lame_library_names[] =
 {
@@ -228,6 +296,17 @@ typedef struct mp3_priv_t {
   LSX_DLENTRIES_TO_PTRS(MAD_FUNC_ENTRIES, mad_dl);
 #endif /*HAVE_MAD_H*/
 
+#ifdef HAVE_MPG123_H
+  mpg123_handle* handle;
+  // off_t mp3_next_frame;      /* offset to the first valid unprocessed frame */
+  // size_t mp3_buffer_end;      /* offset to the last valid input data byte + 1 */
+  unsigned char *raw_buffer;  /* buffer for decoded audio data */
+  size_t raw_buffer_size;     /* total size of raw_buffer */
+  size_t raw_buffer_start;    /* offset to first valid data byte */
+  size_t raw_buffer_end;      /* offset to last valid data byte + 1 */
+  LSX_DLENTRIES_TO_PTRS(MPG123_FUNC_ENTRIES, mpg123_dl);
+#endif /*HAVE_MPG123_H*/
+
 #if defined(HAVE_LAME) || defined(HAVE_TWOLAME)
   float *pcm_buffer;
   size_t pcm_buffer_size;
@@ -247,7 +326,7 @@ typedef struct mp3_priv_t {
 #endif
 } priv_t;
 
-#ifdef HAVE_MAD_H
+#if defined(HAVE_MAD_H) || defined(HAVE_MPG123_H)
 
 /* This function merges the functions tagtype() and id3_tag_query()
    from MAD's libid3tag, so we don't have to link to it
@@ -272,13 +351,13 @@ static int tagtype(const unsigned char *data, size_t length)
         if (flags & ID3_TAG_FLAG_FOOTERPRESENT)
             size += 10;
         for (; size < length && !data[size]; ++size);  /* Consume padding */
-        return size;
+        return (int) size;
     }
 
     return 0;
 }
 
-#endif /*HAVE_MAD_H*/
+#endif /*HAVE_MAD_H || HAVE_MPG123_H */
 
 #include "mp3-util.h"
 
@@ -289,7 +368,7 @@ static int tagtype(const unsigned char *data, size_t length)
  * still exists in the buffer then they are first shifted to be
  * front of the stream buffer.
  */
-static int sox_mp3_input(sox_format_t * ft)
+static int sox_mad_input(sox_format_t * ft)
 {
     priv_t *p = (priv_t *) ft->priv;
     size_t bytes_read;
@@ -326,7 +405,7 @@ static int sox_mp3_input(sox_format_t * ft)
  * consume it all.  Returns SOX_EOF if no tag is found.  Its up to
  * caller to recover.
  * */
-static int sox_mp3_inputtag(sox_format_t * ft)
+static int sox_mad_inputtag(sox_format_t * ft)
 {
     priv_t *p = (priv_t *) ft->priv;
     int rc = SOX_EOF;
@@ -419,14 +498,14 @@ static int startread(sox_format_t * ft)
       /* check whether input buffer needs a refill */
       if (p->Stream.error == MAD_ERROR_BUFLEN)
       {
-          if (sox_mp3_input(ft) == SOX_EOF)
+          if (sox_mad_input(ft) == SOX_EOF)
               return SOX_EOF;
 
           continue;
       }
 
       /* Consume any ID3 tags */
-      sox_mp3_inputtag(ft);
+      sox_mad_inputtag(ft);
 
       /* FIXME: We should probably detect when we've read
        * a bunch of non-ID3 data and still haven't found a
@@ -511,8 +590,8 @@ static size_t sox_mp3read(sox_format_t * ft, sox_sample_t *buf, size_t len)
         /* check whether input buffer needs a refill */
         if (p->Stream.error == MAD_ERROR_BUFLEN)
         {
-            if (sox_mp3_input(ft) == SOX_EOF) {
-                lsx_debug("sox_mp3_input EOF");
+            if (sox_mad_input(ft) == SOX_EOF) {
+                lsx_debug("sox_mad_input EOF");
                 break;
             }
         }
@@ -521,7 +600,7 @@ static size_t sox_mp3read(sox_format_t * ft, sox_sample_t *buf, size_t len)
         {
             if(MAD_RECOVERABLE(p->Stream.error))
             {
-                sox_mp3_inputtag(ft);
+                sox_mad_inputtag(ft);
                 continue;
             }
             else
@@ -662,7 +741,237 @@ static int sox_mp3seek(sox_format_t * ft, uint64_t offset)
 
   return SOX_EOF;
 }
-#else /* !HAVE_MAD_H */
+#endif /* !HAVE_MAD_H */
+
+
+
+
+
+
+
+
+
+#ifdef HAVE_MPG123_H
+
+/*
+ * Feed mpg123 handler with new data from the input stream. This
+ * is much more simple than with MAD, since mpg123 uses internal
+ * buffering.
+ */
+static int sox_mpg123_input(sox_format_t * ft)
+{
+    priv_t *p = (priv_t *) ft->priv;
+    size_t bytes_read;
+    int error;
+
+    bytes_read = lsx_readbuf(ft, p->mp3_buffer, p->mp3_buffer_size);
+    if (bytes_read == 0) {
+      return SOX_EOF;
+    }
+
+    error = p->mpg123_feed(p->handle, p->mp3_buffer, bytes_read);
+    if (error) {
+      lsx_fail_errno(ft, SOX_EOF, "mpg123 error: %s", mpg123_plain_strerror(error));
+      return SOX_EOF;
+    }
+
+    return SOX_SUCCESS;
+}
+
+/* MPG123 startread */
+static int startread(sox_format_t * ft)
+{
+  priv_t *p = (priv_t *) ft->priv;
+  int error;
+  int ret;
+  sox_bool ignore_length = ft->signal.length == SOX_IGNORE_LENGTH;
+  int open_library_result;
+
+  LSX_DLLIBRARY_OPEN(
+      p,
+      mpg123_dl,
+      MPG123_FUNC_ENTRIES,
+      "MPG123 decoder library",
+      mpg123_library_names,
+      open_library_result);
+  if (open_library_result)
+    return SOX_EOF;
+
+  /* Initialize mpg123 library. It is safe to call it when the library is already initialized.
+   * TODO: mpg123_init() is not thread-safe, so check that this place is ok to call it from */
+  p->mpg123_init();
+
+  /* Calculate length if input is seekable */
+  ft->signal.length = SOX_UNSPEC;
+  if (ft->seekable) {
+#ifdef USING_ID3TAG
+    read_comments(ft);
+    lsx_rewind(ft);
+    if (!ft->signal.length)
+#endif
+      if (!ignore_length)
+        ft->signal.length = mp3_duration(ft);
+  }
+
+  /* Allocate buffers */
+  p->mp3_buffer_size = sox_globals.bufsiz;
+  p->mp3_buffer = lsx_malloc(p->mp3_buffer_size);
+  p->raw_buffer_size = p->mp3_buffer_size * 16; /* TODO: better calculation */
+  p->raw_buffer = lsx_malloc(p->raw_buffer_size);
+
+  /* Get a mpg123 handle */
+  p->handle = p->mpg123_new(NULL, &error);
+  if (!p->handle) {
+    lsx_fail_errno(ft, SOX_EOF, "Could not get mpg123 handle: %s", mpg123_plain_strerror(error));
+    return SOX_EOF;
+  }
+  error = mpg123_param(p->handle, MPG123_FLAGS, MPG123_FUZZY | MPG123_SEEKBUFFER | MPG123_GAPLESS | MPG123_FORCE_FLOAT, 0);
+  if (error) {
+    lsx_fail_errno(ft, SOX_EOF, "Unable to set library options: %s", mpg123_plain_strerror(error));
+    return SOX_EOF;
+  }
+
+  ft->encoding.encoding = SOX_ENCODING_MP3;
+
+  /* Set output format to 32 bit float */
+  {
+    const long *rates;
+    size_t rate_count;
+    p->mpg123_format_none(p->handle);
+    p->mpg123_rates(&rates, &rate_count);
+    for (size_t i = 0; i < rate_count; i++) {
+        p->mpg123_format(p->handle, rates[i], MPG123_MONO|MPG123_STEREO, MPG123_ENC_FLOAT_32);
+    }
+  }
+
+  /* Open mpg123 handle in feed mode */
+  error = p->mpg123_open_feed(p->handle);
+  if (error) {
+    lsx_fail_errno(ft, SOX_EOF, "Unable open feed: %s", mpg123_plain_strerror(error));
+    return SOX_EOF;
+  }
+
+  /* Decode until the format is found */
+  ret = sox_mpg123_input(ft);
+  if (ret == SOX_EOF) return SOX_EOF;
+
+  ret = MPG123_OK;
+  while(ret != MPG123_ERR && ret != MPG123_NEED_MORE) {
+    size_t bytes;
+    ret = p->mpg123_read(p->handle, p->raw_buffer + p->raw_buffer_end, p->raw_buffer_size - p->raw_buffer_end, &bytes);
+    p->raw_buffer_end += bytes;
+    /* If we found a format, set signal info and stop processing */
+    if (ret == MPG123_NEW_FORMAT) {
+      int channels = 0;
+      int enc = 0;
+      long rate = 0;
+      p->mpg123_getformat(p->handle, &rate, &channels, &enc);
+      ft->signal.rate = rate;
+      ft->signal.channels = (unsigned int)channels;
+      ft->signal.precision = 16;
+      if (bytes > 0) {
+        lsx_warn("new format frame returned audio data!");
+      }
+      break;
+    }
+    /* This should probably never happen */
+    if (p->raw_buffer_end > p->raw_buffer_size) {
+      p->raw_buffer_end = p->raw_buffer_size; // Avoid crash
+      lsx_fail("Not enough room in raw_buffer!");
+      return SOX_EOF;
+    }
+  }
+
+  return SOX_SUCCESS;
+}
+
+/*
+ * Read up to len samples from p->raw_buffer
+ * If needed, read and decode some more MP3 data
+ * Place in buf[].
+ * Return number of samples read.
+ */
+static size_t sox_mp3read(sox_format_t * ft, sox_sample_t *buf, size_t len)
+{
+    priv_t *p = (priv_t *) ft->priv;
+    size_t donow, i, done=0;
+
+    do {
+        /* copy from raw_buffer to return buffer */
+        size_t samples = (p->raw_buffer_end - p->raw_buffer_start) / sizeof(float);
+        donow=min(len, samples);
+        if (donow > 0) {
+          float *ibuf = (float*)(p->raw_buffer + p->raw_buffer_start); // Cast
+          i=0;
+          SOX_SAMPLE_LOCALS;
+          while(i<donow){
+            buf[i] = SOX_FLOAT_32BIT_TO_SAMPLE(ibuf[i], ft->clips);
+            i++;
+            p->raw_buffer_start += sizeof(float);
+          };
+
+          len -= donow;
+          done += donow;
+        }
+
+        /* return if no more data is needed right now */
+        if (len == 0) break;
+
+        /* if we reach this point, it is because raw_buffer is empty */
+        p->raw_buffer_start = 0;
+        p->raw_buffer_end = 0;
+
+        /* feed mp3 decoder */
+        /* TODO: check if it is really needed at this point */
+        sox_mpg123_input(ft);
+
+        /* decode data and place in raw_buffer */
+        int ret = MPG123_OK;
+        while((ret != MPG123_ERR) && (ret != MPG123_NEED_MORE)
+              && ((p->raw_buffer_size - p->raw_buffer_end) > p->mpg123_outblock(p->handle))) {
+          size_t bytes;
+          ret = p->mpg123_read(p->handle, p->raw_buffer + p->raw_buffer_end, p->raw_buffer_size - p->raw_buffer_end, &bytes);
+          if (ret == MPG123_NEW_FORMAT) {
+            long rate;
+            int channels, enc;
+            p->mpg123_getformat(p->handle, &rate, &channels, &enc);
+            if (rate != ft->signal.rate || channels != (int)ft->signal.channels) {
+              lsx_warn("New mp3 format: %li Hz, %i channels", rate, channels);
+            }
+          }
+          p->raw_buffer_end += bytes;
+        }
+        /* If buffer is still empty, there is nothing more to process */
+        if (p->raw_buffer_end == 0) break;
+    } while(1);
+
+    return done;
+}
+
+static int stopread(sox_format_t * ft)
+{
+  priv_t *p=(priv_t*) ft->priv;
+
+  p->mpg123_close(p->handle);
+
+  free(p->mp3_buffer);
+  free(p->raw_buffer);
+  p->mpg123_exit();
+  LSX_DLLIBRARY_CLOSE(p, mpg123_dl);
+  return SOX_SUCCESS;
+}
+
+static int sox_mp3seek(sox_format_t * ft, uint64_t offset)
+{
+  lsx_fail("Seeking in mp3 is not yet implemented");
+  return SOX_EOF;
+}
+#endif /* HAVE_MPG123_H */
+
+
+
+
+#if !defined(HAVE_MAD_H) && !defined(HAVE_MPG123_H)
 static int startread(sox_format_t * ft)
 {
   lsx_fail_errno(ft,SOX_EOF,"SoX was compiled without MP3 decoding support");
