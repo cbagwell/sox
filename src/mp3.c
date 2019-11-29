@@ -905,7 +905,7 @@ static size_t sox_mp3read(sox_format_t * ft, sox_sample_t *buf, size_t len)
           i=0;
           SOX_SAMPLE_LOCALS;
           while(i<donow){
-            buf[i] = SOX_FLOAT_32BIT_TO_SAMPLE(ibuf[i], ft->clips);
+            *buf++ = SOX_FLOAT_32BIT_TO_SAMPLE(ibuf[i], ft->clips);
             i++;
             p->raw_buffer_start += sizeof(float);
           };
