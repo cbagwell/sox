@@ -31,6 +31,11 @@ static int flow(sox_effect_t *effp, sox_sample_t const * ibuf,
     sox_sample_t * obuf, size_t * isamp, size_t * osamp)
 {
   priv_t * p = (priv_t *)effp->priv;
+  /* Abort if there are no samples to write */
+  if (*isamp == 0) {
+    *osamp = 0;
+    return SOX_SUCCESS;
+  }
   /* Write out *isamp samples */
   size_t len = sox_write(p->file, ibuf, *isamp);
 
