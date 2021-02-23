@@ -88,6 +88,8 @@ static char const * auto_detect_format(sox_format_t * ft, char const * ext)
   CHECK(sf    , 0, 0, ""     , 0,  4, "\144\243\004\0")
   CHECK(sox   , 0, 0, ""     , 0,  4, ".SoX")
   CHECK(sox   , 0, 0, ""     , 0,  4, "XoS.")
+  CHECK(mp3   , 0, 0, ""     , 0,  3, "ID3")
+  CHECK(mp3   , 0, 0, ""     , 0,  2, "\xFF\xFB")
 
   if (ext && !strcasecmp(ext, "snd"))
   CHECK(sndr  , 7, 1, ""     , 0,  2, "\0")

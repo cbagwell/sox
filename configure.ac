@@ -394,6 +394,32 @@ AM_CONDITIONAL(HAVE_ID3TAG, test x$using_id3tag = xyes)
 
 
 
+dnl Check for mpg123 libraries
+AC_ARG_WITH(mpg123,
+    AS_HELP_STRING([--with-mpg123],
+        [Try to use mpg123 (LGPL MP3 Audio Decoder)]))
+using_mpg123=no
+if test "$with_mpg123" == "yes"; then
+    using_mpg123=yes
+    AC_CHECK_HEADERS(mpg123.h,, using_mpg123=no)
+    AC_MSG_CHECKING([whether to dlopen mpg123])
+    AC_ARG_ENABLE(dl_mpg123,
+      AS_HELP_STRING([--enable-dl-mpg123], [Dlopen mpg123 instead of linking in.]),
+      enable_dl_mpg123=$enableval, enable_dl_mpg123=no)
+    AC_MSG_RESULT($enable_dl_mpg123)
+    if test "x$using_libltdl" = "xyes" -a "x$enable_dl_mpg123" = "xyes"; then
+      AC_DEFINE(DL_MPG123, 1, [Define to dlopen() mpg123.])
+    else
+      enable_dl_mpg123="no"
+      AC_CHECK_LIB(mpg123, mpg123_new, MP3_LIBS="$MP3_LIBS -lmpg123",using_mpg123=no)
+      if test "$with_mpg123" = "yes" -a "$using_mpg123" = "no"; then
+        AC_MSG_FAILURE([cannot find libmpg123])
+      fi
+    fi
+fi
+
+
+
 dnl Check for LAME library.
 AC_ARG_WITH(lame,
     AS_HELP_STRING([--without-lame],
@@ -623,9 +649,9 @@ AC_OPTIONAL_FORMAT(sunaudio, SUN_AUDIO, [AC_CHECK_HEADERS(sys/audioio.h,,
 
 
 
-# MP2/MP3 format depends on libmad || LAME || twolame
+# MP2/MP3 format depends on libmad || libmpg123 || LAME || twolame
 AC_OPTIONAL_FORMAT(mp3, MP3, [
-  if test "$using_mad" != yes -a "$using_lame" != yes -a "$using_twolame" != yes; then
+  if test "$using_mad" != yes -a "$using_mpg123" != yes -a "$using_lame" != yes -a "$using_twolame" != yes; then
     using_mp3=no
   fi])
 
@@ -739,6 +765,10 @@ fi
 echo " mad.......................$using_mad"
 if test "x$using_mad" = "xyes"; then
 echo " dlopen mad................$enable_dl_mad"
+fi
+echo " mpg123....................$using_mpg123"
+if test "x$using_mpg123" = "xyes"; then
+echo " dlopen mpg123.............$enable_dl_mpg123"
 fi
 echo " twolame...................$using_twolame"
 if test "x$using_twolame" = "xyes"; then
